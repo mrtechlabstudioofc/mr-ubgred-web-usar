@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#050914">
+<meta name="robots" content="noindex">
+<title>Secure Download Gateway | MR TechLab Studio</title>
+<script>
+/* Pro status cache (re-checked against the database after sign-in). Pro members skip the sponsor steps. */
+(function(w,d){var p=false;try{var o=JSON.parse(localStorage.getItem('mt_pro_v1')||'null');p=!!(o&&o.until>Date.now());}catch(e){}
+w.__MT_PRO=p;if(p)d.documentElement.classList.add('is-pro');
+w.mtAd=function(src,attr){if(!w.__MT_PRO)d.write('<script '+(attr||'')+' src="'+src+'"><\/script>');};})(window,document);
+</script>
+<script>
+/* Theme colours: same palette and storage key as the main app */
+(function (win, doc) {
+  'use strict';
+  var KEY = 'mt_theme_v1';
+  var P = [
+    { id: 'cyan',    a: '#00e5ff', b: '#3a86ff' },
+    { id: 'violet',  a: '#8b6cff', b: '#6c4cff' },
+    { id: 'emerald', a: '#00e08a', b: '#00a86b' },
+    { id: 'rose',    a: '#ff3d71', b: '#ff0055', pro: true },
+    { id: 'orange',  a: '#ff9f1a', b: '#ff5e00', pro: true },
+    { id: 'magenta', a: '#ff4fd8', b: '#b44cff', pro: true },
+    { id: 'yellow',  a: '#ffe600', b: '#ffb800', pro: true }
+  ];
+  function rgb(h) { var n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function lum(h) { var c = rgb(h); return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; }
+  function cur() {
+    try { var id = localStorage.getItem(KEY), s = P[0]; for (var i = 0; i < P.length; i++) if (P[i].id === id) s = P[i]; return (s.pro && !win.__MT_PRO) ? P[0] : s; }
+    catch (e) { return P[0]; }
+  }
+  function apply(s) {
+    var r = doc.documentElement.style;
+    r.setProperty('--primary-accent', s.a); r.setProperty('--primary-rgb', rgb(s.a).join(','));
+    r.setProperty('--secondary-accent', s.b); r.setProperty('--secondary-rgb', rgb(s.b).join(','));
+    r.setProperty('--on-acc', (lum(s.a) + lum(s.b)) / 2 > 0.5 ? '#04121a' : '#ffffff');
+  }
+  apply(cur());
+  win.MtTheme = { refresh: function () { apply(cur()); } };
+})(window, document);
+</script>
+
+<style>
+:root{
+  --primary-accent:#36f0e0;--primary-rgb:54,240,224;--secondary-accent:#25a9ff;--secondary-rgb:37,169,255;--on-acc:#00111e;
+  --bg:#050914;
+  --panel:#0c1628;
+  --panel2:#101e34;
+  --line:rgba(100,190,255,.17);
+  --blue:var(--secondary-accent);
+  --cyan:var(--primary-accent);
+  --text:#edf6ff;
+  --muted:#8da5c1;
+  --green:#28e6a1;
+  --red:#ff6b7a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:
+  radial-gradient(circle at 50% -10%,rgba(var(--secondary-rgb),.28) 0,transparent 42%),
+  var(--bg);
+  color:var(--text);
+  font-family:Inter,system-ui,Arial,sans-serif;
+  min-height:100vh;
+}
+button,a{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+#verification{
+  min-height:100vh;display:flex;align-items:center;
+  justify-content:center;padding:25px;text-align:center;
+}
+.verify-card,.card{
+  width:100%;max-width:520px;margin:auto;
+  background:linear-gradient(145deg,rgba(16,34,58,.96),rgba(7,15,29,.98));
+  border:1px solid var(--line);border-radius:25px;
+  padding:28px;box-shadow:0 20px 70px #0008;
+}
+.loader-ring{
+  width:105px;height:105px;margin:0 auto 25px;
+  border:3px solid #183653;border-top-color:var(--cyan);
+  border-right-color:var(--blue);border-radius:50%;
+  animation:spin 1s linear infinite;
+  position:relative;
+}
+.loader-ring:after{
+  content:"";position:absolute;inset:13px;
+  border:2px dashed var(--cyan);border-radius:50%;
+  animation:spin 5s linear infinite reverse;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{font-size:25px;margin:0 0 9px}
+h2{font-size:22px;margin:0 0 12px}
+p{color:var(--muted);line-height:1.65}
+.brand{font-weight:800;letter-spacing:1.5px;color:#fff}
+.brand span{color:var(--cyan)}
+.verify-status{
+  margin-top:22px;text-align:left;background:#071222;
+  padding:14px;border-radius:13px;font-size:13px;
+}
+.verify-status div{padding:6px 0;color:#a9c5df}
+.ok{color:var(--green)!important}
+.progress{
+  height:5px;background:#1b3048;border-radius:10px;
+  overflow:hidden;margin-top:18px;
+}
+.progress span{
+  display:block;height:100%;width:0%;
+  background:linear-gradient(90deg,var(--blue),var(--cyan));
+  transition:width .4s;
+}
+header{
+  padding:17px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+}
+header .brand{font-size:14px}
+.step-label{font-size:12px;color:var(--muted)}
+main{padding:25px 16px 45px}
+.card{padding:25px 22px}
+.step-top{text-align:center;margin-bottom:24px}
+.eyebrow{
+  display:inline-block;padding:7px 12px;border-radius:30px;
+  color:var(--cyan);background:rgba(var(--primary-rgb),.1);font-size:11px;
+  letter-spacing:1px;margin-bottom:14px;
+}
+.info-box{
+  padding:16px;background:#09172a;border:1px solid var(--line);
+  border-radius:15px;margin:14px 0;
+}
+.info-box strong{display:block;margin-bottom:6px}
+.info-box p{font-size:13px;margin:0;word-break:break-word;white-space:pre-line}
+.btn{
+  display:block;width:100%;border:0;border-radius:13px;padding:15px;
+  font-weight:800;color:var(--on-acc);text-align:center;text-decoration:none;
+  background:linear-gradient(100deg,var(--blue),var(--cyan));
+  box-shadow:0 8px 25px rgba(var(--secondary-rgb),.22);
+}
+.btn.secondary{
+  background:#14263d;color:#dcecff;
+  border:1px solid var(--line);box-shadow:none;
+}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.install-instruction{
+  text-align:center;margin:0 0 24px;padding:17px 12px 13px;
+  border:1px solid rgba(var(--primary-rgb),.28);border-radius:18px;
+  background:linear-gradient(135deg,rgba(var(--primary-rgb),.09),rgba(var(--secondary-rgb),.10));
+  box-shadow:0 8px 28px rgba(0,0,0,.16);
+}
+.install-title{
+  display:block;font-size:clamp(17px,4.7vw,22px);font-weight:900;letter-spacing:1px;
+  background:linear-gradient(90deg,#37eaff,#8c8cff,#ff72c6,#ffd166,#37eaff);
+  background-size:250% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:installGlow 4s linear infinite;
+}
+.install-bn{display:block;margin-top:7px;color:#e8f5ff;font-size:13px;font-weight:700;}
+.down-arrows{display:flex;justify-content:center;gap:9px;margin-top:8px;color:var(--cyan);font-size:25px;line-height:1;}
+.down-arrows span{display:inline-block;animation:arrowDown 1s ease-in-out infinite;}
+.down-arrows span:nth-child(2){animation-delay:.16s}.down-arrows span:nth-child(3){animation-delay:.32s}
+@keyframes installGlow{to{background-position:250% center}}
+@keyframes arrowDown{0%,100%{transform:translateY(-3px);opacity:.45}50%{transform:translateY(5px);opacity:1}}
+.gw-timer{text-align:center;color:#b9d7ee;font-size:12px;font-weight:700;margin:16px 0 10px;min-height:19px;}
+.gw-timer strong{color:var(--cyan);font-variant-numeric:tabular-nums;}
+.social-grid{grid-template-columns:1fr;gap:11px;}
+.social{width:100%;min-height:68px;}
+.social.visited{border-color:var(--green);background:rgba(40,230,161,.08);}
+.social.visited small{color:var(--green);}
+.social-progress{text-align:center;margin:13px 0 0;color:#b9d7ee;font-size:12px;font-weight:700;}
+.social-progress strong{color:var(--cyan);}
+@keyframes blink{50%{opacity:.3}}
+.bottom-actions{margin-top:25px;display:flex;gap:10px}
+.bottom-actions .btn{flex:1;width:auto;min-width:0}
+.bottom-actions .btn.secondary{flex:0 0 auto;min-width:96px;padding-left:16px;padding-right:16px}
+.bottom-actions a.btn.secondary{flex:1}
+.social-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;margin-top:20px;
+}
+.social{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 11px;border-radius:15px;
+  background:#0a192c;border:1px solid var(--line);
+  color:white;text-decoration:none;min-width:0;
+  transition:.2s;
+}
+.social:active{transform:scale(.97)}
+.social svg{width:31px;height:31px;flex-shrink:0}
+.social strong{display:block;font-size:13px}
+.social small{font-size:10px;color:var(--muted)}
+.social:hover{border-color:var(--cyan)}
+.scan-box{
+  background:#061426;border:1px solid rgba(var(--secondary-rgb),.35);
+  border-radius:18px;padding:20px;margin:20px 0;
+}
+.scan-circle{
+  width:115px;height:115px;margin:5px auto 20px;
+  border-radius:50%;border:2px solid rgba(var(--primary-rgb),.45);
+  display:grid;place-items:center;position:relative;
+  box-shadow:0 0 30px rgba(var(--primary-rgb),.14);
+}
+.scan-circle:before{
+  content:"";position:absolute;inset:8px;
+  border:1px dashed var(--cyan);border-radius:50%;
+  animation:spin 7s linear infinite;
+}
+.shield{font-size:38px;color:var(--cyan)}
+.scan-line{
+  height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  animation:scan 1.8s infinite;
+}
+@keyframes scan{0%{transform:translateY(-25px);opacity:0}50%{opacity:1}100%{transform:translateY(25px);opacity:0}}
+.scan-list{text-align:left;font-size:13px}
+.scan-list div{padding:9px 0;border-bottom:1px solid var(--line)}
+.scan-list span{float:right;color:var(--muted)}
+.scan-list .done span{color:var(--green)}
+.scan-list .fail span{color:var(--red)}
+.err{margin-top:14px;padding:12px 14px;border-radius:14px;color:#ffd0d5;background:rgba(255,107,122,.1);border:1px solid rgba(255,107,122,.4);font-size:13px;line-height:1.5}
+.err a{color:#fff;font-weight:800;text-decoration:underline}
+.download-file{
+  text-align:center;padding:22px;background:#071629;
+  border:1px solid var(--line);border-radius:17px;margin:20px 0;
+}
+.download-icon{font-size:43px;color:var(--cyan)}
+.app-hero{display:flex;align-items:center;gap:14px;margin:6px 0 4px}
+.app-ico{width:72px;height:72px;flex:none;border-radius:20px;overflow:hidden;background:linear-gradient(145deg,rgba(var(--primary-rgb),.25),rgba(var(--secondary-rgb),.25));border:1px solid rgba(var(--primary-rgb),.35);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:var(--cyan)}
+.app-ico img{width:100%;height:100%;object-fit:cover}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#0d2236;border:1px solid var(--line);color:#cfe4fb}
+.note{font-size:12px;color:#6f86a1;text-align:center;margin:12px 0 0}
+.btn.big{padding:19px;font-size:17px;letter-spacing:.5px;animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 10px 36px rgba(var(--primary-rgb),.5)}}
+footer{text-align:center;padding:22px;color:#607993;font-size:11px}
+
+/* Ads Slot Design */
+.ad-slot {
+  margin-top: 18px;
+  padding: 10px;
+  border: 1px dashed rgba(148,163,184,.22);
+  border-radius: 14px;
+  text-align: center;
+  color: #64748b;
+  font-size: 11px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  overflow: hidden;
+  background: rgba(255,255,255,.02);
+  min-height: 60px;
+}
+.ad-slot iframe{display:block;margin:6px auto 0;border:0;max-width:100%;background:transparent}
+html.is-pro .ad-slot:not(.keep){display:none}
+.sep{margin:26px 0 0;text-align:center;font-size:11px;letter-spacing:1px;color:#4f6580;text-transform:uppercase}
+@media(max-width:360px){
+ .social-grid{grid-template-columns:1fr}
+ .card{padding:21px 17px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+
+<body>
+
+<!-- INITIAL VERIFICATION (each line turns green when the real step finishes) -->
+<section id="verification">
+ <div class="verify-card">
+  <div class="loader-ring"></div>
+  <div class="brand">MR <span>TECHLAB STUDIO</span></div>
+  <h1 style="margin-top:22px">Secure Gateway</h1>
+  <p>Initializing a secure download session. Please wait while we verify the connection.</p>
+  <div class="verify-status">
+   <div id="v1">◉ Establishing secure connection...</div>
+   <div id="v2">◉ Checking gateway session...</div>
+   <div id="v3">◉ Preparing application information...</div>
+  </div>
+  <div class="progress"><span id="vprogress"></span></div>
+  <p style="font-size:11px;margin-bottom:0">MR TECHLAB STUDIO • SECURE ACCESS</p>
+ </div>
+</section>
+
+<div id="app" class="hidden">
+<header>
+ <div class="brand">MR <span>TECHLAB STUDIO</span></div>
+ <div class="step-label" id="stepLabel">STEP 1 / 8</div>
+</header>
+
+<main>
+ <section class="card" id="stage"></section>
+</main>
+<footer>© 2026 MR TechLab Studio. All rights reserved.</footer>
+</div>
+
+<!-- Social Bar (hidden for Pro members) -->
+<script>mtAd("https://pl31405461.profitableratecpmnetwork.com/0c/64/3e/0c643e1b095de2862201f38c0ba23e36.js")</script>
+
+<script type="module">
+/* =====================================================================
+   MR TECHLAB — SECURE DOWNLOAD GATEWAY
+   One page for every download:
+     gateway.html?app=<appId>     an app from the store
+     gateway.html?zip=<token>     a ZIP file just built on the Files page
+   Ads, the smartlink and the social links are optional: Continue always works.
+   ===================================================================== */
+// EDIT THIS VALUE ONLY to change the gateway countdown (seconds): 1, 5, 10, 60, etc.
+const TIMER_SECONDS = 5;
+
+// Number of social links that must be opened before Continue is unlocked.
+// When adding a new social link, update this number to match the total link count.
+const REQUIRED_SOCIAL_LINKS = 6;
+
+const CONFIG = {
+  SMARTLINK: "https://www.profitableratecpmnetwork.com/khhb0sxa?key=a5b50548384953d1a4866f2b52283023",
+  APP_PAGE: "apk.html",
+  FILES_PAGE: "files.html",
+  SUBSCRIPTION_PAGE: "subscription.html",
+  FREE_DAILY: 2,                       // free users: 2 apps + 2 ZIP files per day
+
+  /* Community links. Add each new URL on its own line below, then add its label in socialItems(). */
+  /* These URLs can also be overridden in the database at settings/gateway with the same keys. */
+  SOCIAL: {
+    youtube: "https://youtube.com/@mrtechlabstudio", // Social link 1
+    facebook: "https://www.facebook.com/mrtechlabstudio", // Social link 2
+    instagram: "https://www.instagram.com/mrtechlabstudio/", // Social link 3
+    telegram: "https://t.me/mrtechlabstudio19", // Social link 4
+    whatsapp: "https://chat.whatsapp.com/HAScEiuNmCn0TW3pZGtGnK", // Social link 5
+    tiktok: "https://www.tiktok.com/@mr.techlab.studio" // Social link 6
+    // ADD NEW SOCIAL URL HERE (one URL per line); remember to add its item in socialItems() and update REQUIRED_SOCIAL_LINKS.
+  }
+};
+
+/* Adsterra units. Each ad runs inside its own small frame, so several ads never overwrite each other's settings. */
+const AD_CONFIGS = [
+  { key: "c3447406b11d1c33694b3121ea2b21f0", width: 320, height: 50 },
+  { key: "43c3fd7befc662a9e6392fec3dd3b7ce", width: 300, height: 250 },
+  { key: "99e27b6f9d23f449eeb5f883ff9c1ce7", width: 160, height: 300 },
+  { key: "a9e926d7c06da3656413294b9ee5b310", width: 320, height: 50 },
+  { key: "a1f7d69945af3609fb16968a4c113690", width: 320, height: 50 }
+];
+
+const STEPS = [
+  "App Information", "Download Guidelines", "Important Notice", "Access Information",
+  "Social Media", "Gateway Instructions", "Security Verification", "Download"
+];
+const LAST = STEPS.length - 1, SCAN = 6;
+
+/* ---------------------------------------------------------------- helpers */
+const $ = (s, r = document) => r.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+function escapeHTML(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
+function fmtSize(v) {
+  if (v === undefined || v === null || String(v).trim() === "") return "";
+  const s = String(v).trim();
+  return /^\d+(\.\d+)?$/.test(s) ? s + " MB" : s;
+}
+function bytesLabel(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+
+/* download-link validation: https only, no credentials, no private addresses, Google Drive share links become direct links */
+function classifyUrl(raw, type) {
+  let u;
+  try { u = new URL(String(raw || "").trim()); } catch (e) { return { ok: false, reason: "The download link is not a valid web address." }; }
+  if (u.protocol !== "https:") return { ok: false, reason: "Only secure (https) download links are allowed." };
+  if (u.username || u.password) return { ok: false, reason: "Links with embedded credentials are blocked." };
+  const h = u.hostname.toLowerCase();
+  if (/^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0)/.test(h) || /\.(local|internal)$/.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || !h.includes("."))
+    return { ok: false, reason: "This link points to a private address and was blocked." };
+  let kind = "external", label = h;
+  if (h === "drive.google.com" || h === "docs.google.com") { kind = "drive"; label = "Google Drive"; }
+  else if (h === "github.com" || h === "raw.githubusercontent.com" || h.endsWith(".githubusercontent.com")) { kind = "github"; label = "GitHub"; }
+  else if (h === "play.google.com") { kind = "play"; label = "Google Play"; }
+  if (type === "play_store" && kind !== "play") return { ok: false, reason: "A Google Play app must use a play.google.com link." };
+  let url = u.toString();
+  if (kind === "drive") {
+    const m = u.pathname.match(/\/file\/d\/([\w-]+)/), id = m ? m[1] : u.searchParams.get("id");
+    if (id && /^[\w-]+$/.test(id)) url = "https://drive.google.com/uc?export=download&id=" + id;
+  }
+  return { ok: true, url, kind, label, host: h };
+}
+
+/* ---------------------------------------------------------------- what is being downloaded */
+const params = new URLSearchParams(location.search);
+const APP_ID = params.get("app") || "";
+const ZIP_TOKEN = params.get("zip") || "";
+const KIND = ZIP_TOKEN ? "zip" : "app";
+const SKEY = "mt_gw_" + KIND + "_" + (ZIP_TOKEN || APP_ID);
+const BACK = KIND === "zip" ? CONFIG.FILES_PAGE : CONFIG.APP_PAGE + (APP_ID ? "?app=" + encodeURIComponent(APP_ID) : "");
+
+const S = { user: null, db: null, fb: null, item: null, zipRec: null, pro: { until: 0 }, proLoaded: false, blocked: false, dlq: { day: "", n: 0, z: 0 },
+            link: null, social: { ...CONFIG.SOCIAL }, counted: false, inFlight: false, scanning: false };
+const isPro = () => S.pro.until > Date.now();
+const proNow = () => isPro() || (!S.proLoaded && !!window.__MT_PRO);
+const dayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const qk = () => KIND === "zip" ? "z" : "n";
+function localQ() {
+  try { const o = JSON.parse(localStorage.getItem("mt_dlq_v1") || "null"); return (o && S.user && o.uid === S.user.uid && o.day === dayKey()) ? { n: Number(o.n) || 0, z: Number(o.z) || 0 } : { n: 0, z: 0 }; }
+  catch (e) { return { n: 0, z: 0 }; }
+}
+const saveLocalQ = () => { try { if (S.user) localStorage.setItem("mt_dlq_v1", JSON.stringify({ uid: S.user.uid, day: dayKey(), n: S.dlq.n || 0, z: S.dlq.z || 0 })); } catch (e) {} };
+const dlLeft = () => proNow() ? Infinity : Math.max(0, CONFIG.FREE_DAILY - (Number(S.dlq[qk()]) || 0));
+function useDownload() {
+  if (proNow() || !S.user) return;
+  const day = dayKey(), key = qk(), { ref, runTransaction } = S.fb;
+  S.dlq[key] = (Number(S.dlq[key]) || 0) + 1; saveLocalQ();
+  const mine = S.dlq[key];
+  runTransaction(ref(S.db, `users/${S.user.uid}/dlq`), cur => {
+    const base = (cur && cur.day === day) ? cur : { day, n: 0, z: 0 };
+    return { day, n: Number(base.n) || 0, z: Number(base.z) || 0, [key]: Math.max(mine, (Number(base[key]) || 0) + 1) };
+  }).catch(() => {});
+}
+
+/* ---------------------------------------------------------------- ZIP files handed over by the Files page (IndexedDB) */
+function idb() { return new Promise((res, rej) => { const r = indexedDB.open("mt_gateway", 1); r.onupgradeneeded = () => r.result.createObjectStore("zips"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbGet(k) { const d = await idb(); return new Promise((res, rej) => { const q = d.transaction("zips").objectStore("zips").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+
+/* ---------------------------------------------------------------- progress (kept per download, not shared between apps) */
+function loadSaved() { try { return JSON.parse(sessionStorage.getItem(SKEY) || "{}"); } catch (e) { return {}; } }
+const restoredState = loadSaved();
+const flowState = {
+  pageFlow: restoredState.pageFlow && typeof restoredState.pageFlow === "object" ? restoredState.pageFlow : {},
+  socialClicks: restoredState.socialClicks && typeof restoredState.socialClicks === "object" ? restoredState.socialClicks : {}
+};
+function save() {
+  try { sessionStorage.setItem(SKEY, JSON.stringify({ step: currentStep, scan: scanFinished, pageFlow: flowState.pageFlow, socialClicks: flowState.socialClicks })); } catch (e) {}
+}
+function getPageFlow(index) {
+  if (!flowState.pageFlow[index]) flowState.pageFlow[index] = { timerStartedAt: 0, afterTimerSmartOpened: false };
+  return flowState.pageFlow[index];
+}
+let currentStep = 0, scanFinished = false, savedScan = false, timerInterval = null, timerObserver = null;
+
+/* ---------------------------------------------------------------- ads */
+function adElement(i) {
+  const cfg = AD_CONFIGS[i];
+  const wrap = document.createElement("div");
+  wrap.className = "ad-slot" + (i === 0 ? " keep" : "");
+  wrap.appendChild(document.createTextNode("Advertisement"));
+  const f = document.createElement("iframe");
+  f.width = cfg.width; f.height = cfg.height; f.scrolling = "no"; f.title = "Advertisement"; f.setAttribute("frameborder", "0");
+  f.srcdoc = '<!doctype html><html><body style="margin:0;background:transparent"><script>atOptions={"key":"' + cfg.key + '","format":"iframe","height":' + cfg.height + ',"width":' + cfg.width + ',"params":{}};<\/script><script src="https://www.highrevenueformat.com/' + cfg.key + '/invoke.js"><\/script></body></html>';
+  wrap.appendChild(f);
+  return wrap;
+}
+/*
+ * ================================================================
+ * EDITABLE AD SLOTS — THE SEVEN VERIFICATION PAGES
+ * Each array below is one page's ad-slot list (page 1 is index 0).
+ * To ADD an ad slot: add another valid AD_CONFIGS index to that page,
+ * for example [0, 1, 2, 3]. To REMOVE one: delete its number.
+ * Valid indexes are 0, 1, 2, 3, 4 (see AD_CONFIGS above).
+ * Keep this block here; the slots render immediately BEFORE Continue.
+ * ================================================================
+ */
+const VERIFY_AD_SLOTS = [
+  [0, 1, 2], // Page 1 — App Information
+  [0, 2, 3], // Page 2 — Download Guidelines
+  [0, 3, 4], // Page 3 — Important Notice
+  [0, 4, 1], // Page 4 — Access Information
+  [0, 1, 3], // Page 5 — Social Media
+  [0, 2, 4], // Page 6 — Gateway Instructions
+  [0, 3, 2]  // Page 7 — Security Verification
+];
+function addAds(container, list) {
+  list.forEach(i => { if (proNow() && i !== 0) return; container.appendChild(adElement(i)); });
+}
+const adsForStep = i => VERIFY_AD_SLOTS[i] || [0, 1, 2];
+
+/* ---------------------------------------------------------------- icons */
+const ICONS = {
+ youtube: `<svg viewBox="0 0 24 24"><path fill="#ff0033" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8Z"/><path fill="#fff" d="m9.6 15.5 6.3-3.5-6.3-3.5z"/></svg>`,
+ facebook: `<svg viewBox="0 0 24 24"><path fill="#1877f2" d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.3c0-3 1.8-4.7 4.6-4.7 1.3 0 2.6.2 2.6.2v2.9h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12Z"/></svg>`,
+ instagram: `<svg viewBox="0 0 24 24"><defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#ffb900"/><stop offset=".5" stop-color="#ff0069"/><stop offset="1" stop-color="#7638fa"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="6" fill="none" stroke="url(#ig)" stroke-width="2.5"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="#e84c9b" stroke-width="2"/><circle cx="18" cy="6.5" r="1.3" fill="#ffb900"/></svg>`,
+ telegram: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#229ed9"/><path fill="#fff" d="m5.2 11.5 12-4.6c.6-.2 1.1.1.9.9l-2 9.4c-.1.7-.6.8-1.1.5l-3.2-2.4-1.6 1.6c-.2.2-.4.4-.8.4l.3-3.3 6-5.4c.3-.3-.1-.4-.5-.2l-7.4 4.7-3.2-1c-.7-.2-.7-.6.6-.6Z"/></svg>`,
+ whatsapp: `<svg viewBox="0 0 24 24"><path fill="#25d366" d="M12 1a11 11 0 0 0-9.5 16.5L1 23l5.7-1.5A11 11 0 1 0 12 1Z"/><path fill="#fff" d="M17.8 14.9c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.7.2-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.6-.8-2.7-1.5-3.8-3.3-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.6l-.9-2.1c-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.6s1.2 3 1.4 3.2c.2.2 2.4 3.7 5.8 5 .8.3 1.5.5 2 .6.8.2 1.6.2 2.2.1.7-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4Z"/></svg>`,
+ tiktok: `<svg viewBox="0 0 24 24"><path fill="#25f4ee" d="M15 2h3c.2 2 1.4 3.6 3.5 4.2v3.1a9 9 0 0 1-3.5-1.1v6.5a6.5 6.5 0 1 1-6.5-6.5c.4 0 .8 0 1.2.1v3.4a3.1 3.1 0 1 0 2.3 3V2Z"/><path fill="#fe2c55" d="M13 4h3c.2 2 1.4 3.6 3.5 4.2v2.2a9 9 0 0 1-3.5-1.1v6.5a6.5 6.5 0 0 1-9.5 5.7 6.5 6.5 0 0 0 10.5-5.1V9.9a9 9 0 0 0 3.5 1.1V8.8C18.4 8.2 17.2 6.6 17 4h-3V2h-1v2Z"/></svg>`
+};
+function socialItems() {
+  // ADD A MATCHING [key, name, description] LINE HERE for every new URL added to CONFIG.SOCIAL.
+  return [
+    ["youtube", "YouTube", "Subscribe to our channel"], // Social link 1
+    ["facebook", "Facebook", "Follow our official page"], // Social link 2
+    ["instagram", "Instagram", "Follow our Instagram"], // Social link 3
+    ["telegram", "Telegram", "Join our official channel"], // Social link 4
+    ["whatsapp", "WhatsApp", "Join our support group"], // Social link 5
+    ["tiktok", "TikTok", "Follow our TikTok profile"] // Social link 6
+    // ADD NEW SOCIAL ITEM HERE when adding a new URL above.
+  ].filter(([k]) => /^https?:\/\//i.test(S.social[k] || ""));
+}
+function socialDoneCount() { return socialItems().filter(([key]) => !!flowState.socialClicks[key]).length; }
+function socialAllDone() {
+  const items = socialItems();
+  // Continue unlocks only when the configured required number exists and every required link is opened.
+  return items.length >= REQUIRED_SOCIAL_LINKS && socialDoneCount() >= REQUIRED_SOCIAL_LINKS;
+}
+function socialPage() {
+  const items = socialItems();
+  const done = socialDoneCount();
+  return `
+ <div class="step-top"><span class="eyebrow">STAY CONNECTED</span><h2>Our Social Media</h2>
+  <p>Open each official social media link below. The Continue button unlocks after all required social links have been opened.</p></div>
+ <div class="social-grid">${items.map(([key, name, desc]) => {
+   const visited = !!flowState.socialClicks[key];
+   return `<a class="social${visited ? " visited" : ""}" data-social-key="${key}" href="${escapeHTML(S.social[key])}" target="_blank" rel="noopener noreferrer">
+    ${ICONS[key]}<div><strong>${name}</strong><small>${visited ? "✓ OPENED" : desc}</small></div></a>`;
+ }).join("")}</div>
+ <p class="social-progress" id="socialProgress">Opened: <strong>${done} / ${items.length}</strong> links</p>`;
+}
+
+/* ---------------------------------------------------------------- Smart Link, countdown and return refresh */
+const SMARTLINK_PENDING_KEY = SKEY + "_smartlink_pending";
+const SMARTLINK_BLUR_KEY = SKEY + "_smartlink_blurred";
+function openGatewaySmartLink() {
+  // Open synchronously inside the user's tap so mobile browsers do not block the new tab.
+  try { sessionStorage.setItem(SMARTLINK_PENDING_KEY, "1"); } catch (e) {}
+  const opened = window.open(CONFIG.SMARTLINK, "_blank", "noopener,noreferrer");
+  if (opened) { try { opened.opener = null; } catch (e) {} }
+}
+function startPageTimer(index) {
+  const state = getPageFlow(index);
+  if (!state.timerStartedAt) { state.timerStartedAt = Date.now(); save(); }
+  updatePageTimer(index);
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => updatePageTimer(index), 250);
+}
+function updatePageTimer(index) {
+  if (currentStep !== index) { if (timerInterval) clearInterval(timerInterval); timerInterval = null; return; }
+  const state = getPageFlow(index);
+  const remaining = Math.max(0, (TIMER_SECONDS * 1000) - (Date.now() - (state.timerStartedAt || Date.now())));
+  const el = $("#gwTimer");
+  if (!el) return;
+  if (remaining > 0) el.innerHTML = `Continue সক্রিয় হওয়ার আগে অপেক্ষা করুন: <strong>${(remaining / 1000).toFixed(1)}s</strong>`;
+  else { el.innerHTML = `${TIMER_SECONDS} সেকেন্ড সম্পন্ন — Continue চাপুন`; if (timerInterval) clearInterval(timerInterval); timerInterval = null; }
+}
+function handleGatewayContinue() {
+  if (currentStep === 4 && !socialAllDone()) return;
+  if (currentStep === SCAN && !scanFinished) { showScanErr("Please complete the Security Verification first."); return; }
+  const state = getPageFlow(currentStep);
+  if (!state.timerStartedAt) { state.timerStartedAt = Date.now(); save(); }
+  const elapsed = Date.now() - state.timerStartedAt;
+  if (elapsed < TIMER_SECONDS * 1000) {
+    // During the configured countdown, EVERY tap opens the Smart Link; the step does not advance.
+    openGatewaySmartLink();
+    return;
+  }
+  if (!state.afterTimerSmartOpened) {
+    // Once the configured timer ends, the first tap opens Smart Link exactly once.
+    state.afterTimerSmartOpened = true; save();
+    openGatewaySmartLink();
+    return;
+  }
+  // The next tap after that one-time Smart Link visit advances to the next page.
+  go(currentStep + 1);
+}
+function refreshGatewayAfterSmartLinkReturn() {
+  try {
+    if (document.visibilityState === "hidden") return;
+    if (sessionStorage.getItem(SMARTLINK_PENDING_KEY) === "1" && sessionStorage.getItem(SMARTLINK_BLUR_KEY) === "1") {
+      sessionStorage.removeItem(SMARTLINK_PENDING_KEY);
+      sessionStorage.removeItem(SMARTLINK_BLUR_KEY);
+      location.reload(); // reloads the gateway and all ad frames; step/timer/click states are restored from sessionStorage.
+    }
+  } catch (e) {}
+}
+window.addEventListener("blur", () => {
+  try { if (sessionStorage.getItem(SMARTLINK_PENDING_KEY) === "1") sessionStorage.setItem(SMARTLINK_BLUR_KEY, "1"); } catch (e) {}
+});
+window.addEventListener("focus", refreshGatewayAfterSmartLinkReturn);
+document.addEventListener("visibilitychange", () => {
+  try {
+    if (document.visibilityState === "hidden" && sessionStorage.getItem(SMARTLINK_PENDING_KEY) === "1") {
+      sessionStorage.setItem(SMARTLINK_BLUR_KEY, "1");
+      return;
+    }
+  } catch (e) {}
+  refreshGatewayAfterSmartLinkReturn();
+});
+
+/* ---------------------------------------------------------------- pages */
+function itemRows() {
+  const it = S.item;
+  if (KIND === "zip") {
+    return [["File", it.name], ["Type", "ZIP archive" + (it.protected ? " (password protected)" : "")], ["Contains", it.count + " file" + (it.count > 1 ? "s" : "")], ["File Size", it.size]];
+  }
+  return [["Application", it.name], ["Version", it.version || "Latest Version"], ["File Size", it.size || "Not listed"]];
+}
+function heroHtml() {
+  const it = S.item, letter = escapeHTML((it.name || "A").trim().charAt(0).toUpperCase());
+  const icon = it.logoUrl && /^https?:\/\//i.test(it.logoUrl)
+    ? `<img src="${escapeHTML(it.logoUrl)}" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${letter}'">` : (KIND === "zip" ? "ZIP" : letter);
+  return `<div class="app-hero"><div class="app-ico">${icon}</div><div style="min-width:0"><h2 style="margin:0 0 8px;word-break:break-word">${escapeHTML(it.name)}</h2>
+    <div class="chips">${it.version ? `<span class="chip">v${escapeHTML(it.version)}</span>` : ""}<span class="chip">${escapeHTML(it.size || "Size n/a")}</span><span class="chip">${KIND === "zip" ? "ZIP file" : escapeHTML(it.typeLabel)}</span></div></div></div>`;
+}
+const sponsorCard = () => `<div class="info-box"><strong>Support us (optional)</strong><p>A sponsored link. Visiting it is completely your choice and does not change your download.</p>
+  <a class="btn secondary" style="margin-top:12px" href="${escapeHTML(CONFIG.SMARTLINK)}" target="_blank" rel="noopener noreferrer sponsored">VISIT SPONSOR</a></div>`;
+
+function securityPage() {
+  const st = scanFinished ? "✓ PASSED" : "WAITING";
+  return `
+ <div class="step-top"><span class="eyebrow">FINAL SECURITY CHECK</span><h2>Cyber Security Verification</h2>
+  <p>We check your session, this download and the link before handing it over. Every line is a real check.</p></div>
+ <div class="scan-box">
+  <div class="scan-circle"><div class="shield">⬡</div><div class="scan-line" style="position:absolute;left:0;right:0;top:50%"></div></div>
+  <div class="scan-list" id="scanList">
+   <div id="s1" class="${scanFinished ? "done" : ""}">Secure session check <span>${st}</span></div>
+   <div id="s2" class="${scanFinished ? "done" : ""}">Gateway integrity check <span>${st}</span></div>
+   <div id="s3" class="${scanFinished ? "done" : ""}">Download link check <span>${st}</span></div>
+   <div id="s4" class="${scanFinished ? "done" : ""}">Final verification <span>${st}</span></div>
+  </div>
+  <div id="scanErr"></div>
+ </div>
+ <button class="btn" id="scanBtn">${scanFinished ? "VERIFICATION COMPLETED" : "START SECURITY SCAN"}</button>`;
+}
+
+function pageContent(i) {
+  const it = S.item;
+  switch (i) {
+    case 0: return `
+  <div class="step-top"><span class="eyebrow">${KIND === "zip" ? "YOUR ZIP FILE" : "APPLICATION DETAILS"}</span><h2>${escapeHTML(it.name)}</h2><p>Welcome to the official download gateway of MR TechLab Studio.</p></div>
+  ${heroHtml()}
+  ${itemRows().map(([k, v]) => `<div class="info-box"><strong>${escapeHTML(k)}</strong><p>${escapeHTML(v)}</p></div>`).join("")}
+  ${it.description ? `<div class="info-box"><strong>Description</strong><p>${escapeHTML(it.description)}</p></div>` : ""}`;
+    case 1: return `
+  <div class="step-top"><span class="eyebrow">DOWNLOAD GUIDE</span><h2>Before You Continue</h2><p>Please read the following information carefully.</p></div>
+  <div class="info-box"><strong>Step 01</strong><p>Follow the gateway steps in order. Each one has a Continue button.</p></div>
+  <div class="info-box"><strong>Step 02</strong><p>Use the official download button on the final page.</p></div>${sponsorCard()}`;
+    case 2: return `
+  <div class="step-top"><span class="eyebrow">IMPORTANT NOTICE</span><h2>Download Information</h2><p>Some applications may require additional installation permissions.</p></div>
+  <div class="info-box"><strong>Android Installation</strong><p>Only install applications from sources you trust.</p></div>
+  ${KIND === "zip" ? `<div class="info-box"><strong>ZIP password</strong><p>One password opens every file inside this ZIP. If you do not have it yet, use the Password button on the Files page.</p></div>` : ""}`;
+    case 3: return `
+  <div class="step-top"><span class="eyebrow">ACCESS INFORMATION</span><h2>Gateway Access</h2><p>You're using the MR TechLab Studio download gateway.</p></div>
+  <div class="info-box"><strong>Secure Access</strong><p>This page guides you through the download process.</p></div>${sponsorCard()}`;
+    case 4: return socialPage();
+    case 5: return `
+  <div class="step-top"><span class="eyebrow">GATEWAY GUIDE</span><h2>Almost There!</h2><p>You have reached the final stages of the download process.</p></div>
+  <div class="info-box"><strong>Next Step</strong><p>Complete the Cyber Security Verification on the next screen.</p></div>${sponsorCard()}`;
+    case SCAN: return securityPage();
+    default: return `
+  <div class="step-top"><span class="eyebrow">DOWNLOAD READY</span><h2>Your File Is Ready</h2><p>The gateway steps are complete. Continue to the official download.</p></div>
+  <div class="download-file"><div class="download-icon">⇩</div><h2>${escapeHTML(it.name)}</h2><p>${escapeHTML(it.version ? "v" + it.version + " • " : "")}${escapeHTML(it.size || "")}</p></div>
+  <div id="dlHolder"></div>`;
+  }
+}
+
+function renderStep(index) {
+  currentStep = Math.max(0, Math.min(LAST, index));
+  save();
+  $("#stepLabel").textContent = `STEP ${currentStep + 1} / ${STEPS.length}`;
+  const stage = $("#stage");
+  stage.innerHTML = "";
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if (timerObserver) { timerObserver.disconnect(); timerObserver = null; }
+  if (currentStep !== LAST) {
+    const hint = document.createElement("div");
+    hint.className = "install-instruction";
+    hint.innerHTML = '<span class="install-title">INSTALL DOWN TO CONTINUE</span><span class="install-bn">নিচের দিকে যান, তারপর ডাউনলোড করুন।</span><div class="down-arrows" aria-hidden="true"><span>↓</span><span>↓</span><span>↓</span></div>';
+    stage.appendChild(hint);
+  }
+  const content = document.createElement("div");
+  content.innerHTML = pageContent(currentStep);
+  stage.appendChild(content);
+
+  if (currentStep === LAST) {
+    /* banner above, the button, then plenty of space before the other ads so nobody taps an ad by mistake */
+    const top = document.createElement("div"); addAds(top, [0]); content.querySelector("#dlHolder").before(top);
+    const m = S.item.typeLabel;
+    const dl = document.createElement("div");
+    dl.innerHTML = `<button class="btn big" id="dlBtn" style="margin-top:22px">${KIND === "app" && S.link && S.link.kind === "play" ? "OPEN GOOGLE PLAY" : "DOWNLOAD NOW"}</button>
+      <p class="note">${KIND === "zip" ? "Saves the ZIP to your phone." : "Opens the original " + escapeHTML(S.link ? S.link.label : "download") + " link in a new tab."}${proNow() ? "" : " " + (dlLeft() === Infinity ? "" : dlLeft() + " of " + CONFIG.FREE_DAILY + " free " + (KIND === "zip" ? "ZIP downloads" : "app downloads") + " left today.")}</p><div id="dlMsg"></div>`;
+    content.querySelector("#dlHolder").appendChild(dl);
+    const sep = document.createElement("div"); sep.className = "sep"; sep.textContent = "Sponsored"; stage.appendChild(sep);
+    const ads = document.createElement("div"); addAds(ads, [1, 3]); stage.appendChild(ads);
+  } else {
+    /* ================================================================
+       AD SLOT INSERTION POINT — ALL 7 VERIFICATION PAGES
+       The editable slot counts/lists are in VERIFY_AD_SLOTS above.
+       Ads are intentionally inserted immediately BEFORE Continue.
+       Copy/add/remove indexes there to increase/decrease ad slots.
+       ================================================================ */
+    const ads = document.createElement("div"); addAds(ads, adsForStep(currentStep)); stage.appendChild(ads);
+  }
+
+  if (currentStep !== LAST) {
+    const timer = document.createElement("div"); timer.className = "gw-timer"; timer.id = "gwTimer";
+    timer.textContent = `Continue বাটনের কাছে এলে ${TIMER_SECONDS} সেকেন্ডের টাইমার শুরু হবে`;
+    stage.appendChild(timer);
+  }
+
+  const actions = document.createElement("div"); actions.className = "bottom-actions";
+  if (currentStep > 0) { const b = document.createElement("button"); b.className = "btn secondary"; b.textContent = "← BACK"; b.onclick = () => go(currentStep - 1); actions.appendChild(b); }
+  if (currentStep === LAST) {
+    const a = document.createElement("a"); a.className = "btn secondary"; a.style.flex = "1"; a.href = BACK; a.textContent = KIND === "zip" ? "BACK TO FILES" : "BACK TO APP"; actions.appendChild(a);
+  } else {
+    const b = document.createElement("button"); b.className = "btn"; b.id = "contBtn"; b.textContent = "CONTINUE →";
+    b.disabled = (currentStep === SCAN && !scanFinished) || (currentStep === 4 && !socialAllDone());
+    if (currentStep === 4 && !socialAllDone()) b.textContent = `OPEN ALL SOCIAL LINKS (${socialDoneCount()}/${REQUIRED_SOCIAL_LINKS})`;
+    b.onclick = handleGatewayContinue; actions.appendChild(b);
+  }
+  stage.appendChild(actions);
+
+  // Track each social link as opened; the Social Media Continue button stays locked until all are clicked.
+  if (currentStep === 4) {
+    content.querySelectorAll(".social[data-social-key]").forEach(a => {
+      a.addEventListener("click", () => {
+        const key = a.getAttribute("data-social-key");
+        flowState.socialClicks[key] = true; save();
+        a.classList.add("visited");
+        const small = a.querySelector("small"); if (small) small.textContent = "✓ OPENED";
+        const progress = $("#socialProgress"); if (progress) progress.innerHTML = `Opened: <strong>${socialDoneCount()} / ${REQUIRED_SOCIAL_LINKS}</strong> links`;
+        const c = $("#contBtn");
+        if (c) { c.disabled = !socialAllDone(); c.textContent = socialAllDone() ? "CONTINUE →" : `OPEN ALL SOCIAL LINKS (${socialDoneCount()}/${REQUIRED_SOCIAL_LINKS})`; }
+      }, { once: true });
+    });
+  }
+
+  if (currentStep !== LAST) {
+    const target = $("#contBtn");
+    const beginTimer = () => startPageTimer(currentStep);
+    if (target && "IntersectionObserver" in window) {
+      timerObserver = new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) { beginTimer(); timerObserver.disconnect(); timerObserver = null; }
+      }, { threshold: 0.35 });
+      timerObserver.observe(target);
+    } else if (target) {
+      // Older browsers: start when the Continue control is rendered as a safe fallback.
+      beginTimer();
+    }
+  }
+
+  if (currentStep === SCAN) {
+    $("#scanBtn").onclick = () => { if (scanFinished) nextStep(); else runSecurityScan(false); };
+    if (!scanFinished && (savedScan || proNow())) runSecurityScan(true);        // came back, or a Pro member: run it right away
+  }
+  if (currentStep === LAST) $("#dlBtn").onclick = downloadFile;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function go(i) { renderStep(i); try { history.pushState({ gw: i }, "", "#s" + (i + 1)); } catch (e) {} }
+function nextStep() {
+  if (currentStep === 4 && !socialAllDone()) return;
+  if (currentStep === SCAN && !scanFinished) { showScanErr("Please complete the Security Verification first."); return; }
+  if (currentStep < LAST) go(currentStep + 1);
+}
+window.addEventListener("popstate", () => {
+  if (!S.item) return;
+  const n = parseInt((location.hash || "").replace("#s", ""), 10);
+  let to = isNaN(n) ? 0 : n - 1;
+  if (to > SCAN && !scanFinished) to = SCAN;
+  renderStep(to);
+});
+
+/* ---------------------------------------------------------------- security scan: every line is a real check */
+function showScanErr(html) { const e = $("#scanErr"); if (e) e.innerHTML = html ? `<div class="err">${html}</div>` : ""; }
+function scanChecks() {
+  const it = S.item;
+  return [
+    ["s1", () => S.user ? { ok: true } : { ok: false, msg: "You are not signed in." }],
+    ["s2", () => (it && (KIND === "zip" ? S.zipRec : it.enabled !== false)) ? { ok: true } : { ok: false, msg: "This download is not available any more." }],
+    ["s3", () => {
+      if (KIND === "zip") return (S.zipRec && S.zipRec.blob && S.zipRec.blob.size > 0 && Date.now() - S.zipRec.created < 30 * 60000) ? { ok: true } : { ok: false, msg: "This ZIP has expired. Go back to the Files page and download it again." };
+      const r = classifyUrl(it.downloadUrl, it.downloadType); S.link = r; return r.ok ? { ok: true } : { ok: false, msg: r.reason };
+    }],
+    ["s4", () => {
+      if (S.blocked) return { ok: false, msg: "Downloads are disabled for your account. Please contact support." };
+      if (dlLeft() <= 0) return { ok: false, limit: true, msg: "You have used today's free " + (KIND === "zip" ? "ZIP" : "app") + " downloads." };
+      return { ok: true };
+    }]
+  ];
+}
+async function runSecurityScan(fast) {
+  if (S.scanning || scanFinished) return; S.scanning = true;
+  const btn = $("#scanBtn"); btn.disabled = true; btn.textContent = "SCANNING..."; showScanErr("");
+  let allOk = true;
+  for (const [id, fn] of scanChecks()) {
+    if (!fast) await sleep(700);
+    if (currentStep !== SCAN) { S.scanning = false; return; }
+    const row = $("#" + id), res = fn();
+    if (res.ok) { row.classList.add("done"); row.querySelector("span").textContent = "✓ PASSED"; }
+    else {
+      allOk = false; row.classList.add("fail"); row.querySelector("span").textContent = "✕ FAILED";
+      showScanErr(escapeHTML(res.msg) + (res.limit ? ` <a href="${escapeHTML(CONFIG.SUBSCRIPTION_PAGE)}">Get Pro</a> for unlimited downloads, or come back tomorrow.` : ""));
+      break;
+    }
+  }
+  S.scanning = false;
+  if (!allOk) { btn.disabled = false; btn.textContent = "TRY AGAIN"; btn.onclick = () => { go(SCAN); }; return; }
+  scanFinished = true; save();
+  btn.disabled = false; btn.textContent = "VERIFICATION COMPLETED"; btn.onclick = () => nextStep();
+  const c = $("#contBtn"); if (c) c.disabled = false;
+  if (proNow()) setTimeout(() => { if (currentStep === SCAN) go(LAST); }, 600);          // Pro members don't need to tap Continue
+}
+
+/* ---------------------------------------------------------------- the download itself */
+function downloadFile() {
+  if (S.inFlight) return;                                       // no duplicate clicks
+  const msg = $("#dlMsg");
+  if (!scanFinished) { go(SCAN); return; }
+  if (S.blocked) { msg.innerHTML = '<div class="err">Downloads are disabled for your account.</div>'; return; }
+  if (!S.counted && dlLeft() <= 0) { msg.innerHTML = `<div class="err">Daily free limit reached. <a href="${escapeHTML(CONFIG.SUBSCRIPTION_PAGE)}">Get Pro</a> for unlimited downloads.</div>`; return; }
+  S.inFlight = true;
+  const btn = $("#dlBtn"); btn.disabled = true; btn.textContent = "STARTING DOWNLOAD…";
+  const a = document.createElement("a");
+  let revoke = null;
+  if (KIND === "zip") {
+    revoke = URL.createObjectURL(S.zipRec.blob);
+    a.href = revoke; a.download = S.zipRec.name;
+  } else {
+    a.href = S.link.url; a.target = "_blank"; a.rel = "noopener noreferrer";                // opened right inside the tap so the browser doesn't block it
+  }
+  document.body.appendChild(a); a.click(); a.remove();
+  if (revoke) setTimeout(() => URL.revokeObjectURL(revoke), 8000);
+  if (!S.counted) { S.counted = true; useDownload(); if (KIND === "app") record().catch(() => {}); }
+  setTimeout(() => { S.inFlight = false; btn.disabled = false; btn.textContent = "DOWNLOAD AGAIN"; msg.innerHTML = '<p class="note">If nothing happened, allow pop-ups/downloads for this site and tap again.</p>'; }, 3500);
+}
+async function record() {
+  const { ref, push, set } = S.fb, a = S.item;
+  try { await push(ref(S.db, "analytics"), { appId: a.id, downloadType: a.downloadType, timestamp: Date.now(), clientTime: new Date().toISOString(), uid: S.user.uid }); } catch (e) {}
+  try { await set(ref(S.db, `users/${S.user.uid}/downloads/${a.id}`), { appId: a.id, name: a.name || "Untitled app", version: a.version || "", logoUrl: a.logoUrl || "", downloadUrl: S.link ? S.link.url : a.downloadUrl, downloadType: a.downloadType, timestamp: Date.now() }); } catch (e) {}
+}
+
+/* ---------------------------------------------------------------- start-up: each line of the first screen turns green when the real step is done */
+function markV(id, msg, pct) {
+  const el = $("#" + id); if (!el) return;
+  el.textContent = "✓ " + msg; el.classList.add("ok");
+  $("#vprogress").style.width = pct + "%";
+}
+function fatal(title, text, href, label) {
+  $("#verification").classList.add("hidden"); $("#app").classList.remove("hidden");
+  $("#stepLabel").textContent = "";
+  $("#stage").innerHTML = `<div class="step-top"><span class="eyebrow">GATEWAY</span><h2>${escapeHTML(title)}</h2><p>${escapeHTML(text)}</p></div>${href ? `<a class="btn" href="${escapeHTML(href)}">${escapeHTML(label)}</a>` : `<button class="btn" onclick="location.reload()">${escapeHTML(label)}</button>`}`;
+}
+
+async function boot(fb, cfg) {
+  S.fb = fb;
+  const app = fb.initializeApp(cfg);
+  S.db = fb.getDatabase(app);
+  markV("v1", "Secure connection established", 33);
+  const auth = fb.getAuth(app);
+  const user = await withTimeout(new Promise(res => { const off = fb.onAuthStateChanged(auth, u => { try { off && off(); } catch (e) {} res(u); }); }), 12000);
+  if (!user) return fatal("Sign in to download", "Please sign in to your account first. After that you will come straight back to your download.", BACK, "GO TO SIGN IN");
+  S.user = user;
+  const { ref, get } = fb;
+  const [proSnap, blkSnap, dlqSnap, setSnap] = await Promise.all([
+    get(ref(S.db, `users/${user.uid}/pro`)).catch(() => null),
+    get(ref(S.db, `users/${user.uid}/blocked`)).catch(() => null),
+    get(ref(S.db, `users/${user.uid}/dlq`)).catch(() => null),
+    get(ref(S.db, "settings/gateway")).catch(() => null)
+  ]);
+  const pv = proSnap && proSnap.exists() ? (proSnap.val() || {}) : {};
+  S.pro = { until: Number(pv.until) || 0 }; S.proLoaded = true;
+  try { if (isPro()) localStorage.setItem("mt_pro_v1", JSON.stringify({ until: S.pro.until, plan: String(pv.planName || ""), uid: user.uid })); else localStorage.removeItem("mt_pro_v1"); } catch (e) {}
+  window.__MT_PRO = isPro(); document.documentElement.classList.toggle("is-pro", isPro()); if (window.MtTheme) window.MtTheme.refresh();
+  S.blocked = !!(blkSnap && blkSnap.exists() && blkSnap.val() === true);
+  const q = dlqSnap && dlqSnap.exists() ? dlqSnap.val() : null, lq = localQ(), ok = q && q.day === dayKey();
+  S.dlq = { day: dayKey(), n: Math.max(ok ? Number(q.n) || 0 : 0, lq.n), z: Math.max(ok ? Number(q.z) || 0 : 0, lq.z) };
+  if (setSnap && setSnap.exists()) { const g = setSnap.val() || {}; Object.keys(S.social).forEach(k => { if (typeof g[k] === "string" && g[k]) S.social[k] = g[k]; }); }
+  markV("v2", "Gateway session verified", 66);
+
+  if (KIND === "zip") {
+    let rec = null; try { rec = await idbGet(ZIP_TOKEN); } catch (e) {}
+    if (!rec || !rec.blob) return fatal("ZIP not found", "This ZIP is no longer available. Please go back to the Files page and download it again.", BACK, "BACK TO FILES");
+    S.zipRec = rec;
+    S.item = { id: ZIP_TOKEN, name: rec.name, version: "", size: bytesLabel(rec.blob.size), count: rec.count || 1, protected: !!rec.protected, description: rec.note || "", typeLabel: "ZIP", logoUrl: "" };
+  } else {
+    const snap = await get(ref(S.db, `apps/${APP_ID}`));
+    const a = snap.exists() ? { id: APP_ID, ...snap.val() } : null;
+    if (!a || a.enabled === false) return fatal("App not found", "This app is no longer available or the link is wrong.", CONFIG.APP_PAGE, "BROWSE APPS");
+    const t = a.downloadType || "direct_apk";
+    a.size = fmtSize(a.fileSize);
+    a.typeLabel = t === "play_store" ? "Google Play" : t === "google_drive" ? "Google Drive" : "Direct APK";
+    S.item = a;
+    document.title = "Download " + (a.name || "app") + " | MR TechLab Studio";
+  }
+  markV("v3", KIND === "zip" ? "ZIP file ready" : "Application information ready", 100);
+
+  const sv = loadSaved();
+  savedScan = !!sv.scan;
+  let start = Math.min(Number(sv.step) || 0, SCAN);
+  if (proNow()) start = SCAN;                                             // Pro members go straight to the security check, then the download
+  await sleep(450);
+  $("#verification").classList.add("hidden"); $("#app").classList.remove("hidden");
+  renderStep(start);
+  try { history.replaceState({ gw: currentStep }, "", "#s" + (currentStep + 1)); } catch (e) {}
+}
+
+async function main() {
+  if (KIND === "app" && !/^[\w-]{1,64}$/.test(APP_ID)) return fatal("No download selected", "Open an app from the store and tap Download.", CONFIG.APP_PAGE, "BROWSE APPS");
+  if (KIND === "zip" && !/^[\w-]{8,64}$/.test(ZIP_TOKEN)) return fatal("No download selected", "Open the Files page and download your ZIP from there.", CONFIG.FILES_PAGE, "OPEN FILES");
+  try {
+    let cfg = null;
+    for (const r of ["./", "../"]) { try { cfg = (await import(r + "app.js")).firebaseConfig; break; } catch (e) {} }
+    if (!cfg) throw new Error("config");
+    const V = "https://www.gstatic.com/firebasejs/10.13.0/";
+    const [A, B, C] = await Promise.all([import(V + "firebase-app.js"), import(V + "firebase-auth.js"), import(V + "firebase-database.js")]);
+    await boot({ initializeApp: A.initializeApp, getAuth: B.getAuth, onAuthStateChanged: B.onAuthStateChanged, getDatabase: C.getDatabase, ref: C.ref, get: C.get, set: C.set, push: C.push, runTransaction: C.runTransaction }, cfg);
+  } catch (err) {
+    fatal("Couldn't load", "Please check your internet connection and try again.", "", "TRY AGAIN");
+  }
+}
+window.__gw = { classifyUrl, fmtSize, boot, S, renderStep, runSecurityScan, downloadFile, go, nextStep, state: () => ({ currentStep, scanFinished }) };   // handy for testing
+main();
+</script>
+</body>
+</html>
